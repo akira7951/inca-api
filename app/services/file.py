@@ -173,7 +173,7 @@ async def get_file_content(file_id: uuid.UUID,storage_client: StorageClient):
     return StreamingResponse(
         response.stream(32*1024),
         media_type='application/octet-stream',
-        headers={'Content-Disposition': f"attachment; filename='{filename}'"}
+        headers={'Content-Disposition': f"attachment; filename={filename}"}
     )
 
 async def copy_file(source_file_id: uuid.UUID,storage_client: StorageClient)->JSONResponse:
