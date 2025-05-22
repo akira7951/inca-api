@@ -125,3 +125,12 @@ async def upload_file(file: UploadFile,purpose: str,size: int,file_name: str,fil
             status_code=status.HTTP_400_BAD_REQUEST,
             content={'error': f"Unexpcted error: {str(e)}"}
         )
+
+async def delete_file(file_id: uuid.UUID,storage_client: StorageClient)->JSONResponse:
+    storage_client.remove_object(FILE_BUCKET_NAME,file_id)
+    
+    resp = {
+        'object': 'file',
+        'data': file_id
+    }
+    return JSONResponse(status_code=status.HTTP_200_OK,content=resp)

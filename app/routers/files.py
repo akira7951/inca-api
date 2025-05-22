@@ -79,3 +79,12 @@ async def upload_file(
     
     storage_client = create_storage_client()
     return await file_sv.upload_file(file,purpose,size,file_name,file_type,storage_client=storage_client)
+
+@router.delete('/deletefile/{file_id}',name='file:delete_file')
+async def delete_file(
+    file_id: str = Path(...,description='The ID the file to use for this request')
+):
+    """"Delete a file"""
+    
+    storage_client = create_storage_client()
+    return await file_sv.delete_file(file_id,storage_client=storage_client)
