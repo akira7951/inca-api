@@ -1,5 +1,5 @@
 from fastapi import UploadFile,status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,StreamingResponse
 from minio.commonconfig import CopySource
 
 from app.adapters.storage import create_storage_client,StorageClient
@@ -130,7 +130,78 @@ async def delete_file(file_id: uuid.UUID,storage_client: StorageClient)->JSONRes
     storage_client.remove_object(FILE_BUCKET_NAME,file_id)
     
     resp = {
+        'id': str(file_id),
         'object': 'file',
-        'data': file_id
+        'delete': True
     }
     return JSONResponse(status_code=status.HTTP_200_OK,content=resp)
+
+async def file_info(file_id: uuid.UUID,storage_client: StorageClient)->JSONResponse:
+    try:
+        object_stat = storage_client.stat_object(FILE_BUCKET_NAME,str(file_id))
+        created_at = object_stat.last_modified.astimezone(
+            ZoneInfo('Asia/Taipei')
+        ).strftime('%Y-%m-%d %H:%M:%S')
+        
+        metadata = object_stat.metadata
+        purpose = metadata.get('X-Amz-Meta-Purpose')
+        filename = metadata.get('X-Amz-Meta-Filename')
+        file_size = object_stat.size
+        
+        resp = {
+            'id': str(file_id),
+            'bytes': file_size,
+            'created_at': created_at,
+            'expired_at': None,
+            'filename': filename,
+            'object': 'file',
+            'purpose': purpose
+        }
+        return JSONResponse(status_code=status.HTTP_200_OK,content=resp)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={'error': f"Unexpcted error: {str(e)}"}
+        )
+
+async def get_file_content(file_id: uuid.UUID,storage_client: StorageClient):
+    object_stat = storage_client.stat_object(FILE_BUCKET_NAME,str(file_id))
+    metadata = object_stat.metadata
+    filename = metadata.get('X-Amz-Meta-Filename')
+    response = storage_client.get_object(FILE_BUCKET_NAME,str(file_id))
+    
+    return StreamingResponse(
+        response.stream(32*1024),
+        media_type='application/octet-stream',
+        headers={'Content-Disposition': f"attachment; filename='{filename}'"}
+    )
+
+async def copy_file(source_file_id: uuid.UUID,storage_client: StorageClient)->JSONResponse:
+    new_file_id = str(uuid.uuid4())
+    
+    try:
+        object_stat = storage_client.stat_object(FILE_BUCKET_NAME,source_file_id)
+        metadata = object_stat.metadata
+        purpose = metadata.get('X-Amz-Meta-Purpose')
+        filename = metadata.get('X-Amz-Meta-Filename')
+        
+        source = CopySource(FILE_BUCKET_NAME,source_file_id)
+        
+        new_metadata = {
+            'purpose': purpose,
+            'filename': filename,
+            'copy_from': source_file_id
+        }
+        
+        storage_client.copy_object(
+            FILE_BUCKET_NAME,new_file_id,source,
+            metadata=new_metadata,
+            metadata_directive='REPLACE'
+        )
+        
+        resp = {'detail': f'Object copied with metadata. New object: {new_file_id}'}
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={'error': f"Unexpcted error: {str(e)}"}
+        )

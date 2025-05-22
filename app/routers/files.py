@@ -88,3 +88,30 @@ async def delete_file(
     
     storage_client = create_storage_client()
     return await file_sv.delete_file(file_id,storage_client=storage_client)
+
+@router.get('/fileinfo/{file_id}',name='file:file_info')
+async def file_info(
+    file_id: str = Path(...,description='The ID the file to use for this request')
+):
+    """"Return information about a specific file"""
+    
+    storage_client = create_storage_client()
+    return await file_sv.file_info(file_id,storage_client=storage_client)
+
+@router.get('/content/{file_id}',name='file:download_file')
+async def file_content(
+    file_id: str = Path(...,description='The ID the file to use for this request')
+):
+    """"Returns the content of the specific file"""
+    
+    storage_client = create_storage_client()
+    return await file_sv.get_file_content(file_id,storage_client=storage_client)
+
+@router.post('/copyfile/{file_id}',name='file:copy_file')
+async def copy_file(
+    file_id: str = Path(...,description='The ID the file to use for this request')
+):
+    """"Copy a file"""
+    
+    storage_client = create_storage_client()
+    return await file_sv.copy_file(file_id,storage_client=storage_client)
